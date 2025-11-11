@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="moneda.png" type="image/png">
+    <title>Criptomonedas-Portfolio</title>
+</head>
+
+<body class="h-screen flex flex-col">
+    <header class="h-24 bg-gray-800 flex items-center justify-center shadow-md shadow-slate-500 z-10">
+        <div class="h-14 w-14 flex items-center absolute left-8">
+            <img src="moneda.png" alt="criptomoneda">
+        </div>
+
+        <nav>
+            <ul class="flex gap-10 font-bold text-black text-lg">
+                <li><a href="../Principal/index2.html"
+                        class="transition ease-in duration-300 shadow-md hover:shadow-orange-400 border-2 p-1 rounded-xl bg-white border-white">Ranking</a>
+                </li>
+                <li><a href="../Favoritos/index.html"
+                        class="transition ease-in duration-300 shadow-md hover:shadow-orange-400 border-2 p-1 rounded-xl bg-white border-white">Favoritos</a>
+                </li>
+                <li><a href="../Portfolio/index1.html"
+                        class="transition ease-in duration-300 shadow-md hover:shadow-orange-400 border-2 p-1 rounded-xl bg-white border-white">Portfolio</a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="bg-gray-600 p-10 flex-grow flex flex-col gap-8">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-semibold text-center text-white mb-4">Simular Compra</h2>
+            <form id="formComprar" class="flex flex-col md:flex-row gap-4 items-end">
+                <div class="flex-1">
+                    <label for="idMoneda" class="block text-sm font-medium text-gray-300 mb-1">ID de Moneda</label>
+                    <input type="text" id="idMoneda" name="idMoneda" required
+                        class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        placeholder="Ej: bitcoin, ethereum, cardano...">
+                </div>
+                <div class="flex-1">
+                    <label for="cantidadUsd" class="block text-sm font-medium text-gray-300 mb-1">Cantidad (USD) a
+                        gastar</label>
+                    <input type="number" id="cantidadUsd" name="cantidadUsd" step="0.01" min="0.01" required
+                        class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        placeholder="Ej: 100">
+                </div>
+                <button type="submit"
+                    class="transition ease-in duration-300 shadow-md hover:shadow-orange-400 border-2 p-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold h-10">
+                    Comprar
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg flex-grow">
+            <h2 class="text-2xl font-semibold text-center text-white mb-4">Tu portfolio</h2>
+            <div class="overflow-y-auto max-h-96">
+                <table class="w-full text-left text-white">
+                    <thead class="sticky top-0 z-50">
+                        <tr class="bg-gray-700">
+                            <th class="p-2">Logo</th>
+                            <th class="p-2">Nombre</th>
+                            <th class="p-2">Cantidad</th>
+                            <th class="p-2">Precio Actual</th>
+                            <th class="p-2">Valor Total</th>
+                            <th class="p-2">Ganancia/Pérdida Total</th>
+                            <th class="p-2">Ganancia/Pérdida 24h</th>
+                            <th class="p-2">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordarLista" class="text-gray-300">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const listado = document.getElementById("recordarLista");
+        const formComprar = document.getElementById("formComprar");
+
+        // --- Event Listeners ---
+        // Se ejecuta cuando el DOM está listo
+        document.addEventListener("DOMContentLoaded", renderPortfolio);
+        // Se ejecuta cuando se envía el formulario de compra
+        formComprar.addEventListener("submit", comprarMoneda);
+
+        /**
+         * Simula la compra de una criptomoneda.
+         * Se activa al enviar el formulario.
+         */
+        async function comprarMoneda(event) {
+            event.preventDefault(); // Evita que la página se recargue
+            
+            const idMoneda = document.getElementById("idMoneda").value.toLowerCase();
+            const cantidadUsd = parseFloat(document.getElementById("cantidadUsd").value);
+
+            if (!idMoneda || !cantidadUsd || cantidadUsd <= 0) {
+                alert("Por favor, introduce un ID de moneda y una cantidad válida en USD.");
+                return;
+            }
+
+            try {
+                // 1. Obtener el precio actual de la moneda para saber cuánta cantidad compramos
+                const res = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${idMoneda}`);
+                const data = await res.json();
+
+                if (data.length === 0) {
+                    alert("Moneda no encontrada. Usa un ID válido (ej: 'bitcoin', 'ethereum').");
+                    return;
+                }
+
+                const coin = data[0];
+                const precioActual = coin.current_price;
+                const cantidadComprada = cantidadUsd / precioActual; // Cantidad de moneda que se compró
+
+                // 2. Obtener portfolio actual de localStorage
+                let portfolio = JSON.parse(localStorage.getItem("portfolio")) || [];
+
+                // 3. Revisar si la moneda ya existe en el portfolio
+                const index = portfolio.findIndex(item => item.id === idMoneda);
+
+                if (index > -1) {
+                    // Si existe, actualizamos la cantidad y el coste base (promedio)
+                    portfolio[index].quantity += cantidadComprada;
+                    portfolio[index].costBasis += cantidadUsd; // Sumamos lo que gastamos
+                } else {
+                    // Si no existe, la añadimos como un nuevo objeto
+                    portfolio.push({
+                        id: idMoneda,
+                        quantity: cantidadComprada,
+                        costBasis: cantidadUsd // El coste inicial es lo que acabamos de gastar
+                    });
+                }
+
+                // 4. Guardar el portfolio actualizado en localStorage
+                localStorage.setItem("portfolio", JSON.stringify(portfolio));
+
+                // 5. Volver a "dibujar" la tabla del portfolio
+                renderPortfolio();
+
+                // 6. Limpiar el formulario
+                document.getElementById("idMoneda").value = "";
+                document.getElementById("cantidadUsd").value = "";
+
+            } catch (err) {
+                console.error(err);
+                alert("Error al comprar la moneda.");
+            }
+        }
+
+        /**
+         * Vende (elimina) una moneda del portfolio.
+         * Esta función es llamada por el botón 'Vender' en la tabla.
+         */
+        function venderMoneda(idMoneda) {
+            let portfolio = JSON.parse(localStorage.getItem("portfolio")) || [];
+            
+            // Filtramos el array para quedarnos con todas menos la que vendemos
+            portfolio = portfolio.filter(item => item.id !== idMoneda);
+            
+            localStorage.setItem("portfolio", JSON.stringify(portfolio));
+            
+            // Volvemos a dibujar la tabla
+            renderPortfolio();
+        }
+
+        /**
+         * Dibuja la tabla completa del portfolio.
+         * Obtiene los datos de localStorage y los precios actualizados de la API.
+         */
+        async function renderPortfolio() {
+            // Limpiar la lista actual
+            listado.innerHTML = "";
+
+            let portfolio = JSON.parse(localStorage.getItem("portfolio")) || [];
+
+            if (portfolio.length === 0) {
+                listado.innerHTML = `<tr><td colspan="8" class="p-4 text-center">Tu portfolio está vacío. ¡Añade una compra!</td></tr>`;
+                return;
+            }
+
+            // Obtenemos los IDs de todas nuestras monedas para una sola llamada a la API
+            const ids = portfolio.map(item => item.id).join(',');
+            if (!ids) return;
+
+            try {
+                const res = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}`);
+                const marketData = await res.json();
+
+                // Creamos un "mapa" de precios para buscar fácilmente
+                const priceMap = {};
+                marketData.forEach(coin => {
+                    priceMap[coin.id] = coin;
+                });
+
+                // Recorremos nuestro portfolio (de localStorage)
+                for (const item of portfolio) {
+                    const coin = priceMap[item.id]; // Datos actuales de la API
+
+                    if (coin) {
+                        // --- Cálculos Realistas ---
+                        const precioActual = coin.current_price;
+                        const valorTotal = item.quantity * precioActual; // Valor actual de nuestras monedas
+                        const gananciaTotal = valorTotal - item.costBasis; // Ganancia real (Valor actual - Coste)
+                        const gananciaTotalPct = (gananciaTotal / item.costBasis) * 100;
+                        
+                        // Cálculo de 24h (como lo tenías)
+                        const cambio24h = coin.price_change_percentage_24h;
+                        const ganancia24h = (valorTotal * cambio24h) / (100 + cambio24h);
+                        
+                        // --- Colores ---
+                        const colorGananciaTotal = gananciaTotal >= 0 ? "text-green-500" : "text-red-500";
+                        const colorCambio24h = cambio24h >= 0 ? "text-green-500" : "text-red-500";
+                        const signoCambio24h = cambio24h >= 0 ? "+" : "";
+
+                        const html = `
+                        <tr class="border-t border-gray-600">
+                            <td class="p-2"><img src="${coin.image}" alt="${coin.name}" class="w-6 h-6"></td>
+                            <td class="p-2">${coin.name}</td>
+                            <td class="p-2">${item.quantity.toFixed(6)}</td>
+                            <td class="p-2">$${precioActual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td class="p-2">$${valorTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            
+                            <td class="p-2 font-bold ${colorGananciaTotal}">
+                                $${gananciaTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+                                (${gananciaTotalPct.toFixed(2)}%)
+                            </td>
+                            
+                            <td class="p-2 font-bold ${colorCambio24h}">
+                                $${ganancia24h.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+                                (${signoCambio24h}${cambio24h.toFixed(2)}%)
+                            </td> 
+                            
+                            <td class="p-2">
+                                <button onclick="venderMoneda('${item.id}')" class="border-2 rounded-md p-2 justify-center bg-red-500 hover:bg-red-700 text-white">Vender</button>
+                            </td>
+                        </tr>`;
+
+                        listado.innerHTML += html;
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                listado.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Error al cargar los datos del portfolio.</td></tr>`;
+            }
+        }
+    </script>
+
+</body>
+
+</html>
