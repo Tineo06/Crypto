@@ -37,3 +37,10 @@ Este proyecto es una aplicación 100% *client-side* (no necesita base de datos n
 * ⚪ **HTML5 Semántico:** Estructura limpia y accesible.
 * 🦎 **API de CoinGecko:** Provee todos los datos de precios, logos y mercado en tiempo real.
 * 💾 **LocalStorage:** Para la persistencia de datos del usuario en el navegador.
+
+
+## 🧪 Prueba el Proyecto
+
+* Puedes probar la aplicación aquí:
+
+* 👉 [Pagina de criptomonedas](https://criptomonedaspruebaweb.vercel.app/)
