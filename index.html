@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="assets/moneda.png" type="image/png">
+  <title>Criptomonedas</title>
+</head>
+
+<body class="h-screen flex flex-col">
+  <header class="h-24 bg-gray-800 flex items-center justify-center shadow-md shadow-slate-500 z-10">
+    <div class="h-14 w-14 flex items-center absolute left-8">
+      <img src="assets/moneda.png" alt="criptomoneda">
+    </div>
+
+    <nav>
+      <ul class="flex gap-10 font-bold text-black text-lg">
+        <li><a href="index.html"
+            class="transition ease-in duration-300 shadow-md hover:shadow-orange-400 border-2 p-1 rounded-xl bg-white border-white">Ranking</a>
+        </li>
+        <li><a href="favoritos.html"
+            class="transition ease-in duration-300 shadow-md hover:shadow-orange-400 border-2 p-1 rounded-xl bg-white border-white">Favoritos</a>
+        </li>
+        <li><a href="porfolio.html"
+            class="transition ease-in duration-300 shadow-md hover:shadow-orange-400 border-2 p-1 rounded-xl bg-white border-white">Portfolio</a>
+        </li>
+      </ul>
+    </nav>
+
+    <div id="sesion" class="absolute right-8 text-xl">
+      <button onclick="iniciarSesion()"
+        class="font-bold border-4 rounded-md p-1 text-white border-white transition ease-in duration-300 hover:bg-orange-400 hover:text-gray-950">Iniciar
+        Sesión</button>
+    </div>
+  </header>
+
+  <main class="bg-gray-600 p-10 grid grid-cols-2 gap-6 flex-grow items-center">
+    <h1 class="col-span-2 text-center text-7xl font-extrabold text-white">Empieza a invertir</h1>
+
+    <div class="bg-gray-800 p-6 rounded-lg">
+      <div class="flex flex-row items-center gap-4 bg-gray-800 p-5 rounded-lg h-32 justify-center">
+        <label class="font-semibold text-white">Filtrar por:</label>
+        <select id="filtro" class="p-2 rounded bg-gray-700 text-white border border-gray-500">
+          <option value="normal">Mostrar todas</option>
+          <option value="rankingPos">Monedas en positivo en las ultimas 24h</option>
+          <option value="rankingNeg">Monedas en negativo en las ultimas 24h</option>
+          <option value="precioAsc">Precio menor a mayor</option>
+          <option value="precioDesc">Precio mayor a menor</option>
+        </select>
+        <button id="aplicarFiltro" onclick="aplicarFiltrado()"
+          class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded transition">
+          Aplicar filtro
+        </button>
+      </div>
+      <h2 class="text-2xl font-semibold text-center text-white mb-4">Añadir Producto</h2>
+      <div class="flex flex-col gap-4">
+        <label class="flex flex-row items-center gap-2">
+          <span class="text-white font-semibold">Moneda</span>
+          <input id="moneda" class="border w-full bg-gray-700 text-white rounded-md p-2 focus:ring-blue-400" required
+            placeholder="Escribe el producto">
+        </label>
+
+        <label class="flex flex-row items-center gap-2">
+          <span class="text-white font-semibold">Cantidad</span>
+          <input id="unidades" type="number"
+            class="border w-full bg-gray-700 text-white rounded-md p-2  focus:ring-blue-400" required
+            placeholder="Cantidad">
+        </label>
+
+        <div class="flex flex-row gap-5 flex-grow justify-center">
+          <button id="añadir" onclick="añadirPortfolio()"
+            class="bg-blue-500 hover:bg-blue-600 text-white font-semibold p-2 rounded-lg shadow-md">
+            Añadir Producto
+          </button>
+          <button id="favoritos" onclick="añadirFavoritos()"
+            class="bg-blue-500 hover:bg-blue-600 text-white font-semibold p-2 rounded-lg shadow-md">
+            Añadir a Favoritos
+          </button>
+          <button id="buscar" onclick="buscarNombre()"
+            class="bg-blue-500 hover:bg-blue-600 text-white font-semibold p-2 rounded-lg shadow-md">
+            Buscar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-gray-800 p-6 rounded-lg">
+      <h2 class="text-2xl font-semibold text-center text-white mb-4">Lista de criptomonedas en tendencia</h2>
+      <div class="overflow-y-auto max-h-96">
+        <table class="w-full text-left text-white">
+          <thead class="sticky top-0 z-50">
+            <tr class="bg-gray-700">
+              <th class="p-2">Logo</th>
+              <th class="p-2">Nombre</th>
+              <th class="p-2">Simbolo</th>
+              <th class="p-2">Precio</th>
+              <th class="p-2">Ultimas 24h</th>
+              <th class="p-2">Fav</th>
+            </tr>
+          </thead>
+          <tbody id="recordarLista" class="text-gray-300">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const listado = document.getElementById("recordarLista");
+    const botonFiltrado = document.getElementById("aplicarFiltro");
+    var resultado; // Almacenará los resultados de la API para filtrar
+
+    // Carga inicial de datos
+    fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd')
+      .then(res => res.json())
+      .then(data => {
+        resultado = data; // Guardamos los datos completos
+        consultarLista(data); // Mostramos la lista inicial
+      })
+      .catch(err => console.error(err));
+
+    function buscarNombre() {
+      const nombreMoneda = document.getElementById("moneda").value.toLowerCase();
+
+      // Si el campo está vacío, mostramos la lista completa original
+      if (nombreMoneda === "") {
+        consultarLista(resultado); // Usamos los datos guardados
+        return;
+      }
+
+      // CORRECCIÓN: La API de 'markets' busca por 'ids', no por 'names'.
+      fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${nombreMoneda}`)
+        .then(res => res.json())
+        .then(trataNombre)
+        .catch(err => console.error(err));
+    }
+
+    function trataNombre(res) {
+      listado.innerHTML = ""; // Limpiar lista
+
+      if (res.length === 0) {
+        // Mensaje de error más útil
+        alert("Moneda no encontrada. Asegúrate de usar el ID (ej: 'bitcoin', 'ethereum')");
+        consultarLista(resultado); // Volver a la lista completa
+        return;
+      }
+
+      const item = res[0];
+      const colorVariante = item.price_change_percentage_24h >= 0 ? "text-green-500" : "text-red-500";
+
+      // HTML actualizado con la estrella interactiva
+      const html = `
+    <tr class="border-t border-gray-600">
+      <td class="p-2"><img src="${item.image}" alt="${item.name}" class="w-6 h-6"></td>
+      <td class="p-2">${item.name}</td>
+      <td class="p-2">${item.symbol}</td>
+      <td class="p-2">${item.current_price} USD</td>
+      <td class="p-2 font-semibold ${colorVariante}">${item.price_change_percentage_24h}%</td>
+      <td class="p-2">
+        <button onclick="añadirFavoritoDesdeTabla('${item.id}')">
+            <img src="assets/estrellaSinFondo.png" alt="Añadir a Favoritos" 
+                 class="h-8 w-8 transition-all duration-200 hover:scale-110 hover:shadow-lg hover:shadow-yellow-400/50">
+        </button>
+      </td>
+    </tr>`;
+
+      listado.innerHTML = html;
+    }
+
+    function consultarLista(res) {
+      listado.innerHTML = "";
+
+      // Mostramos las primeras 15 o menos si hay menos
+      const limite = Math.min(15, res.length);
+      for (let i = 0; i < limite; i++) {
+        const item = res[i];
+        const colorVariacion = item.price_change_percentage_24h >= 0 ? "text-green-500" : "text-red-500";
+
+        // HTML actualizado con la estrella interactiva
+        const html = `
+        <tr class="border-t border-gray-600">
+          <td class="p-2"><img src="${item.image}" alt="${item.name}" class="w-6 h-6"></td>
+          <td class="p-2">${item.name}</td>
+          <td class="p-2">${item.symbol}</td>
+          <td class="p-2">${item.current_price} USD</td>
+          <td class="p-2 font-semibold ${colorVariacion}">${item.price_change_percentage_24h}%</td>
+          <td class="p-2">
+            <button onclick="añadirFavoritoDesdeTabla('${item.id}')">
+                <img src="assets/estrellaSinFondo.png" alt="Añadir a Favoritos" 
+                     class="h-8 w-8 transition-all duration-200 hover:scale-110 hover:shadow-lg hover:shadow-yellow-400/50">
+            </button>
+          </td>
+        </tr>`;
+
+        listado.innerHTML += html;
+      }
+    }
+
+    function aplicarFiltrado() {
+      if (!resultado) {
+        console.error("No hay datos para aplicar el filtro");
+        return;
+      }
+
+      const filtrado = document.getElementById("filtro").value;
+      let datosFiltrados = [...resultado]; // Copiamos el array original
+
+      if (filtrado === "normal") {
+        consultarLista(resultado); // Mostramos la lista normal
+        return;
+      }
+
+      if (filtrado === "rankingPos") {
+        datosFiltrados = datosFiltrados.filter(item => item.price_change_percentage_24h > 0);
+      } else if (filtrado === "rankingNeg") {
+        datosFiltrados = datosFiltrados.filter(item => item.price_change_percentage_24h < 0);
+      } else if (filtrado === "precioAsc") {
+        datosFiltrados.sort((a, b) => a.current_price - b.current_price);
+      } else if (filtrado === "precioDesc") {
+        datosFiltrados.sort((a, b) => b.current_price - a.current_price);
+      }
+
+      // Limpiamos la lista antes de dibujar
+      listado.innerHTML = "";
+
+      // FIX: El bucle de filtrado también debe incluir la estrella
+      for (let j = 0; j < datosFiltrados.length; j++) {
+        const coin = datosFiltrados[j];
+        const colorVariacion = coin.price_change_percentage_24h >= 0 ? "text-green-500" : "text-red-500";
+
+        const html = `<tr class="border-t border-gray-600">
+        <td class="p-2"><img src="${coin.image}" alt="${coin.name}" class="w-6 h-6"></td>
+        <td class="p-2">${coin.name}</td>
+        <td class="p-2">${coin.symbol}</td>
+        <td class="p-2">${coin.current_price} USD</td>
+        <td class="p-2 font-semibold ${colorVariacion}">${coin.price_change_percentage_24h}%</td>
+        <td class="p-2">
+            <button onclick="añadirFavoritoDesdeTabla('${coin.id}')">
+                <img src="assets/estrellaSinFondo.png" alt="Añadir a Favoritos" 
+                     class="h-8 w-8 transition-all duration-200 hover:scale-110 hover:shadow-lg hover:shadow-yellow-400/50">
+            </button>
+        </td>
+      </tr>`;
+
+        listado.innerHTML += html;
+      }
+    }
+
+    /**
+     * NUEVA FUNCIÓN: Añade un favorito desde el clic en la tabla.
+     */
+    function añadirFavoritoDesdeTabla(idMoneda) {
+      if (!idMoneda) return; // No hacer nada si no hay ID
+
+      const favorito = {
+        moneda: idMoneda, // Usamos la misma estructura que tu función original
+      };
+
+      let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
+
+      // Revisar si ya existe
+      const yaExiste = favoritos.some(fav => fav.moneda === idMoneda);
+      if (yaExiste) {
+        alert("Esa moneda ya está en tus favoritos.");
+        return;
+      }
+
+      favoritos.push(favorito);
+      localStorage.setItem('favoritos', JSON.stringify(favoritos));
+      alert(`¡${idMoneda} añadido a favoritos!`);
+    }
+
+    /**
+     * FUNCIÓN ORIGINAL: Añade favorito desde el formulario (se mantiene)
+     */
+    function añadirFavoritos() {
+      const moneda = document.getElementById("moneda").value.toLowerCase();
+      if (!moneda) {
+        alert("Escribe el ID de la moneda en el campo 'Moneda'");
+        return;
+      }
+      // Llamamos a la nueva función para no repetir código
+      añadirFavoritoDesdeTabla(moneda); 
+    }
+
+    /**
+     * FUNCIÓN CORREGIDA: Añade al portfolio con el formato
+     * compatible con Portfolio/index.html (con costBasis)
+     * La hacemos 'async' para poder usar 'await' con fetch.
+     */
+    async function añadirPortfolio() {
+      const idMoneda = document.getElementById("moneda").value.toLowerCase();
+      const unidades = parseFloat(document.getElementById("unidades").value);
+
+      if (!idMoneda || !unidades || unidades <= 0) {
+        alert("Completa los campos 'Moneda' y 'Cantidad' con valores válidos.");
+        return;
+      }
+
+      try {
+        // 1. Necesitamos el precio actual para calcular el coste
+        const res = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${idMoneda}`);
+        const data = await res.json();
+
+        if (data.length === 0) {
+          alert("Moneda no encontrada. Usa un ID válido (ej: 'bitcoin', 'ethereum').");
+          return;
+        }
+
+        const coin = data[0];
+        const precioActual = coin.current_price;
+        const costoDeEstaCompra = unidades * precioActual; // Este es el costBasis
+
+        // 2. Obtener portfolio actual de localStorage
+        let portfolio = JSON.parse(localStorage.getItem("portfolio")) || [];
+
+        // 3. Revisar si la moneda ya existe para actualizarla (promediar)
+        const index = portfolio.findIndex(item => item.id === idMoneda);
+
+        if (index > -1) {
+          // Si existe, actualizamos la cantidad y el coste base
+          portfolio[index].quantity += unidades;
+          portfolio[index].costBasis += costoDeEstaCompra; // Sumamos lo que gastamos
+        } else {
+          // Si no existe, la añadimos como un nuevo objeto
+          portfolio.push({
+            id: idMoneda,
+            quantity: unidades,
+            costBasis: costoDeEstaCompra // El coste inicial es lo que acabamos de gastar
+          });
+        }
+
+        // 4. Guardar el portfolio actualizado en localStorage
+        localStorage.setItem("portfolio", JSON.stringify(portfolio));
+        alert(`¡${unidades} ${idMoneda} añadido al portfolio!`);
+
+        // 5. Limpiar campos
+        document.getElementById("moneda").value = "";
+        document.getElementById("unidades").value = "";
+
+      } catch (err) {
+        console.error(err);
+        alert("Error al obtener el precio de la moneda. No se pudo añadir.");
+      }
+    }
+
+    // --- Funciones de Sesión (sin cambios) ---
+    function iniciarSesion() {
+      const sesion = document.getElementById("sesion")
+      sesion.innerHTML = ""
+      let nombre = prompt("Ingresa tu nombre: ")
+
+      if (nombre != null && nombre.trim() !== "") {
+        const html = `<h3 class="font-bold text-2xl text-white"> Bienvenido, ${nombre}</h3>`
+        sesion.innerHTML += html
+        localStorage.setItem("usuario", nombre);
+      } else {
+        alert("No se introdujo ningun nombre");
+        // Volver a mostrar el botón de Iniciar Sesión
+        sesion.innerHTML = `<button onclick="iniciarSesion()"
+          class="font-bold border-4 rounded-md p-1 text-white border-white transition ease-in duration-300 hover:bg-orange-400 hover:text-gray-950">Iniciar
+          Sesión</button>`;
+      }
+    }
+
+    function mostrarBienvenida() {
+      const usuario = localStorage.getItem("usuario");
+      const sesion = document.getElementById("sesion");
+
+      if (usuario) {
+        sesion.innerHTML = `
+      <h3 class="font-bold text-2xl text-white">
+        Bienvenido, ${usuario}
+      </h3>`;
+      }
+    }
+
+    // Mostrar bienvenida al cargar la página
+    mostrarBienvenida();
+
+</script>
+
+</body>
+
+</html>
